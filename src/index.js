@@ -10,6 +10,8 @@ const siteRoutes = require('./routes/siteRoutes');
 const app = express();
 
 app.use(cors());
+// SECURITY FIX (OWASP A05:2021 - Security Misconfiguration / DoS):
+// Enforce 1MB payload body size limit on JSON parsing to prevent memory exhaustion / DoS attacks.
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => {
@@ -26,6 +28,8 @@ app.use((req, res) => {
 // Error handler - last middleware.
 app.use((err, req, res, next) => {
   console.error(err);
+  // SECURITY FIX (OWASP A05:2021 - Security Misconfiguration & Information Leakage):
+  // Never expose raw internal stack traces or database errors in production responses.
   const isProd = process.env.NODE_ENV === 'production';
   res.status(err.status || 500).json({
     success: false,

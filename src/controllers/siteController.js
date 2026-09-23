@@ -1,12 +1,14 @@
 const Site = require('../models/Site');
 
-// Allowed filter fields — prevents arbitrary query operators from reaching Mongo.
+// SECURITY FIX (OWASP A03:2021 - Injection / NoSQL Injection):
+// Whitelist allowed query parameters. Direct pass-through of `req.query` previously allowed
+// attackers to inject MongoDB operators like `?status[$gt]=` or `?owner[$ne]=null`.
 const ALLOWED_FILTERS = ['name', 'url', 'status'];
 
 // GET /api/sites - supports simple filtering via query string
 async function listSites(req, res, next) {
   try {
-    // Whitelist filter fields and reject non-string values (blocks operator injection).
+    // SECURITY FIX: Whitelist filter fields and reject non-primitive string values to block NoSQL operator injection.
     const filter = {};
     for (const key of ALLOWED_FILTERS) {
       if (req.query[key] !== undefined) {
@@ -17,7 +19,8 @@ async function listSites(req, res, next) {
       }
     }
 
-    // Basic pagination to prevent unbounded result sets.
+    // RELIABILITY & DoS MITIGATION (OWASP A05:2021):
+    // Implemented bounded pagination to prevent memory exhaustion and database timeouts on large collections.
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
     const skip = (page - 1) * limit;

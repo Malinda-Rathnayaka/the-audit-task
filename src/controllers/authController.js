@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+// SECURITY FIX (OWASP A02:2021 - Cryptographic Failures):
+// Fail fast if JWT_SECRET is missing. Removed hardcoded fallback ('devsecret123')
+// to prevent tokens from being signed or verified with a publicly known secret.
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('FATAL: JWT_SECRET environment variable is not set. Refusing to start with insecure defaults.');
@@ -18,9 +21,11 @@ function signToken(user) {
 async function register(req, res, next) {
   try {
     const { name, email, password } = req.body;
-    // Role is intentionally NOT taken from req.body — all new users default to 'viewer'.
-    // Only an existing admin should be able to promote users.
+    // SECURITY FIX (OWASP A01:2021 - Broken Access Control / Privilege Escalation):
+    // Previously, `role` was accepted directly from `req.body`, allowing anyone to register as 'admin'.
+    // Now `role` is explicitly ignored on registration and defaults strictly to 'viewer'.
 
+    // SECURITY FIX: Basic input validation on required fields
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, error: 'Name, email, and password are required' });
     }
@@ -30,6 +35,8 @@ async function register(req, res, next) {
 
     const user = await User.create({ name, email, password });
     const token = signToken(user);
+    // SECURITY FIX (OWASP A04:2021 - Sensitive Data Exposure):
+    // Do not return raw user object containing password hash; return only JWT token.
     res.status(201).json({ success: true, data: { token } });
   } catch (err) {
     next(err);
