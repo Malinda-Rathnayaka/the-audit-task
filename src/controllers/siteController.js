@@ -1,11 +1,37 @@
 const Site = require('../models/Site');
 
+// Allowed filter fields — prevents arbitrary query operators from reaching Mongo.
+const ALLOWED_FILTERS = ['name', 'url', 'status'];
+
 // GET /api/sites - supports simple filtering via query string
 async function listSites(req, res, next) {
   try {
-    // Pass query params straight through as the Mongo filter.
-    const sites = await Site.find(req.query).populate('owner', 'name email');
-    res.json({ success: true, data: sites });
+    // Whitelist filter fields and reject non-string values (blocks operator injection).
+    const filter = {};
+    for (const key of ALLOWED_FILTERS) {
+      if (req.query[key] !== undefined) {
+        if (typeof req.query[key] !== 'string') {
+          return res.status(400).json({ success: false, error: `Invalid value for filter "${key}"` });
+        }
+        filter[key] = req.query[key];
+      }
+    }
+
+    // Basic pagination to prevent unbounded result sets.
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const skip = (page - 1) * limit;
+
+    const [sites, total] = await Promise.all([
+      Site.find(filter).populate('owner', 'name email').skip(skip).limit(limit),
+      Site.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      data: sites,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    });
   } catch (err) {
     next(err);
   }
