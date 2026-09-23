@@ -1,10 +1,15 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is not set. Refusing to start with insecure defaults.');
+}
+
 function signToken(user) {
   return jwt.sign(
     { id: user._id, role: user.role },
-    process.env.JWT_SECRET || 'devsecret123',
+    JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 }

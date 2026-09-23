@@ -10,7 +10,7 @@ const siteRoutes = require('./routes/siteRoutes');
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, data: { status: 'ok' } });
@@ -26,10 +26,11 @@ app.use((req, res) => {
 // Error handler - last middleware.
 app.use((err, req, res, next) => {
   console.error(err);
+  const isProd = process.env.NODE_ENV === 'production';
   res.status(err.status || 500).json({
     success: false,
-    error: err.message,
-    stack: err.stack,
+    error: isProd ? 'Internal server error' : err.message,
+    ...(isProd ? {} : { stack: err.stack }),
   });
 });
 
