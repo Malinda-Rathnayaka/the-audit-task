@@ -8,7 +8,7 @@ async function requireAuth(req, res, next) {
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
     if (!token) return res.status(401).json({ success: false, error: 'No token provided' });
 
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'devsecret123');
+    const payload = jwt.verify(token, process.env.JWT_SECRET);//remove hardcoded secret and use env variable
     const user = await User.findById(payload.id);
     if (!user) return res.status(401).json({ success: false, error: 'User not found' });
 
@@ -20,11 +20,12 @@ async function requireAuth(req, res, next) {
 }
 
 // Restricts a route to specific roles.
-function requireRole(role) {
+function requireRole(...roles) {
   return function (req, res, next) {
-    // TODO: tighten this once the roles model is finalized
-    if (req.user) return next();
-    return res.status(403).json({ success: false, error: 'Forbidden' });
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    return next();
   };
 }
 
